@@ -1,8 +1,8 @@
 const express = require("express");
-const movies = require("./movies");
+const movies = require("./characters");
 const connection = require("./config");
 
-const port = 3001;
+const port = 3000;
 const app = express();
 
 //CONNECTION TO DATABASE
@@ -14,17 +14,21 @@ connection.connect(function (err) {
   console.log("connected as id " + connection.threadId);
 });
 
-//MIDDLEWARE (toujours pas compris à quoi sert ce foutu machin)
+//MIDDLEWARE
 app.use(express.json());
+//PORT
+app.listen(port, () => {
+  console.log(`Server is runing on ${port}`);
+});
 
 //MAIN ROUTE
 app.get("/", (req, res) => {
-  res.send("Welcome to my favorite movie list");
+  res.send("Welcome to my characters list");
 });
 
-//MOVIES
-app.get("/api/movies", (req, res) => {
-  connection.query("SELECT * from movies", (err, results) => {
+//GET ALL
+app.get("/api/characters", (req, res) => {
+  connection.query("SELECT * from characters", (err, results) => {
     if (err) {
       res.status(500).send("Error retrieving data");
     } else {
@@ -33,164 +37,152 @@ app.get("/api/movies", (req, res) => {
   });
 });
 
-app.get("/api/movies/:id", (req, res) => {
+//GET SPECIFIC FIELDS
+app.get("/api/characters-details", (req, res) => {
   connection.query(
-    `SELECT * from movies WHERE id=?`,
-    [req.params.id],
+    "SELECT id, firstname, age, species FROM characters",
     (err, results) => {
       if (err) {
-        console.log(err);
         res.status(500).send("Error retrieving data");
       } else {
-        res.status(200).json(results);
+        res.status(200).send(results);
       }
     }
   );
 });
 
-app.get("/api/search", (req, res) => {
+//GET with filters
+app.get("/api/characters/lynx", (req, res) => {
   connection.query(
-    `SELECT * from movies WHERE duration<=?`,
-    [req.query.durationMax],
+    "SELECT * FROM characters WHERE species='lynx'",
     (err, results) => {
       if (err) {
-        console.log(err);
         res.status(500).send("Error retrieving data");
       } else {
-        res.status(200).json(results);
+        res.status(200).send(results);
       }
     }
   );
 });
 
-app.post("/api/movies", (req, res) => {
-  const { title, director, year, color, duration } = req.body;
+app.get("/api/characters/cl", (req, res) => {
   connection.query(
-    "INSERT INTO movies(title, director, year, color, duration) VALUES(?, ?, ?, ?, ?)",
-    [title, director, year, color, duration],
+    "SELECT * FROM characters WHERE firstname LIKE '%Cl%'",
+    (err, results) => {
+      if (err) {
+        res.status(500).send("Error retrieving data");
+      } else {
+        res.status(200).send(results);
+      }
+    }
+  );
+});
+
+app.get("/api/characters-age", (req, res) => {
+  connection.query(
+    "SELECT * FROM characters WHERE age > '20'",
+
+    (err, results) => {
+      if (err) {
+        res.status(500).send("Error retrieving data");
+      } else {
+        res.status(200).send(results);
+      }
+    }
+  );
+});
+
+//GET by alphabetical order
+app.get("/api/characters-order", (req, res) => {
+  connection.query(
+    "SELECT * FROM characters ORDER BY firstname ASC",
+    (err, results) => {
+      if (err) {
+        res.status(500).send("Error retrieving data");
+      } else {
+        res.status(200).send(results);
+      }
+    }
+  );
+});
+
+//POST a new entity
+app.post("/api/characters", (req, res) => {
+  const { firstname, world, age, species, uses_magic } = req.body;
+  connection.query(
+    "INSERT INTO characters(firstname, world, age, species, uses_magic) VALUES(?, ?, ?, ?, ?)",
+    [firstname, world, age, species, uses_magic],
     (err, results) => {
       if (err) {
         console.log(err);
-        res.status(500).send("Error saving a movie");
+        res.status(500).send("Error saving a character");
       } else {
-        res.status(200).send("Successfully saved");
+        res.status(200).send("Character successfully saved");
       }
     }
   );
 });
 
-app.put("/api/movies/:id", (req, res) => {
-  const idMovie = req.params.id;// We get the ID from the url:
-  const newMovie = req.body;// We get the data from the req.body
+//PUT (modification of an entity)
+app.put("/api/characters/:id", (req, res) => {
+  const idCharacter = req.params.id;
+  const newCharacter = req.body;
   connection.query(
-    "UPDATE movies SET ? WHERE id = ?",
-    [newMovie, idMovie],
+    "UPDATE characters SET ? WHERE id = ?",
+    [newCharacter, idCharacter],
     (err, results) => {
       if (err) {
         console.log(err);
-        res.status(500).send("Error updating a movie");
+        res.status(500).send("Error updating a character");
       } else {
-        res.status(200).send("Movie updated successfully 🎉");
+        res.status(200).send("Character updated successfully 🎉");
       }
     }
   );
 });
 
-app.delete("/api/movies/:id", (req, res) => {
-  const idMovie = req.params.id; 
-  connection.query("DELETE FROM movies WHERE id = ?", [idMovie], (err) => {
+//PUT to toggle boolean
+app.put("/api/characters/:uses_magic", (req, res) => {
+  const idBoolean = req.params.uses_magic;
+  const newBoolean = req.body;
+  connection.query(
+    "UPDATE characters SET uses_magic = ABS(uses_magic - 1) WHERE uses_magic = 2",
+    [newBoolean, idBoolean],
+    (err) => {
+      if (err) {
+        console.log(err);
+        res.status(500).send("Error updating boolean");
+      } else {
+        res.status(200).send("Boolean successfully modified 🎉");
+      }
+    }
+  );
+});
+
+//DELETE an entity
+app.delete("/api/characters/:id", (req, res) => {
+  const idCharacter = req.params.id; 
+  connection.query("DELETE FROM characters WHERE id = ?", [idCharacter], (err) => {
     if (err) {
       console.log(err);
-      res.status(500).send("😱 Error deleting a movie");
+      res.status(500).send("😱 Error deleting a character");
     } else {
-      res.status(200).send("🎉 Movie deleted!");
+      res.status(200).send("🎉 Character deleted!");
     }
   });
 });
 
-//USERS
-app.get('/api/users', (req, res) => {
-  let sql = 'SELECT * FROM users';//store the SQL query in a variable (in let as it is subject to change)
-  const sqlValues = [];//declare an empty array, which may contain values to pass to this query
-  
-  if (req.query.city) {
-    sql += ' WHERE city = ?';
-    sqlValues.push(req.query.city);
-  }
-  
-  connection.query(sql, sqlValues, (err, results) => {
-    if (err) {
-      // If an error has occurred, then the client is informed of the error
-      res.status(500).send(`An error occurred: ${err.message}`);
-    } else {
-      // If everything went well, we send the result of the SQL query as JSON
-      res.json(results);
-    }
-  });
-});
-
-app.get("/api/users/:id", (req, res) => {
-  const idUser = req.params.id;
+//DELETE where boolean is false
+app.delete("/api/delete/characters", (req, res) => {
   connection.query(
-    "SELECT * FROM users WHERE id = ?",
-    [idUser],
+    "DELETE FROM characters WHERE uses_magic = 0",
     (err, results) => {
       if (err) {
         console.log(err);
-        res.status(500).send("😱 Error getting a User");
+        res.status(500).send("😱 Error deleting characters without brooms");
       } else {
-        res.status(200).json(results[0]);
+        res.status(200).send("🎉 Characters without brooms deleted!");
       }
     }
   );
-});
-
-app.post("/api/users", (req, res) => {
-  const { firstname, lastname, email } = req.body;
-  connection.query(
-    "INSERT INTO users(firstname, lastname, email) VALUES(?, ?, ?)",
-    [firstname, lastname, email],
-    (err, results) => {
-      if (err) {
-        console.log(err);
-        res.status(500).send("Error saving a User");
-      } else {
-        res.status(200).send("Successfully saved");
-      }
-    }
-  );
-});
-
-app.put("/api/users/:id", (req, res) => {
-  const idUser = req.params.id;// We get the ID from the url:
-  const newUser = req.body;// We get the data from the req.body
-  connection.query(
-    "UPDATE users SET ? WHERE id = ?",
-    [newUser, idUser],
-    (err, results) => {
-      if (err) {
-        console.log(err);
-        res.status(500).send("Error updating a user");
-      } else {
-        res.status(200).send("User updated successfully 🎉");
-      }
-    }
-  );
-});
-
-app.delete("/api/users/:id", (req, res) => {
-  const idUser = req.params.id; 
-  connection.query("DELETE FROM users WHERE id = ?", [idUser], (err) => {
-    if (err) {
-      console.log(err);
-      res.status(500).send("😱 Error deleting an user");
-    } else {
-      res.status(200).send("🎉 User deleted!");
-    }
-  });
-});
-
-//PORT
-app.listen(port, () => {
-  console.log(`Server is runing on 3000`);
 });
